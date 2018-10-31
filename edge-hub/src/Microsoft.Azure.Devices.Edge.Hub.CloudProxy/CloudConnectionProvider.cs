@@ -33,6 +33,7 @@ namespace Microsoft.Azure.Devices.Edge.Hub.CloudProxy
         readonly ITokenProvider edgeHubTokenProvider;
         readonly IDeviceScopeIdentitiesCache deviceScopeIdentitiesCache;
         readonly bool closeOnIdleTimeout;
+        readonly TimeSpan operationTimeout;
         Option<IEdgeHub> edgeHub;
 
         public CloudConnectionProvider(IMessageConverterProvider messageConverterProvider,
@@ -42,7 +43,8 @@ namespace Microsoft.Azure.Devices.Edge.Hub.CloudProxy
             ITokenProvider edgeHubTokenProvider,
             IDeviceScopeIdentitiesCache deviceScopeIdentitiesCache,
             TimeSpan idleTimeout,
-            bool closeOnIdleTimeout)
+            bool closeOnIdleTimeout,
+            TimeSpan operationTimeout)
         {
             Preconditions.CheckRange(connectionPoolSize, 1, nameof(connectionPoolSize));
             this.messageConverterProvider = Preconditions.CheckNotNull(messageConverterProvider, nameof(messageConverterProvider));
@@ -53,6 +55,7 @@ namespace Microsoft.Azure.Devices.Edge.Hub.CloudProxy
             this.closeOnIdleTimeout = closeOnIdleTimeout;
             this.edgeHubTokenProvider = Preconditions.CheckNotNull(edgeHubTokenProvider, nameof(edgeHubTokenProvider));
             this.deviceScopeIdentitiesCache = Preconditions.CheckNotNull(deviceScopeIdentitiesCache, nameof(deviceScopeIdentitiesCache));
+            this.operationTimeout = operationTimeout;
         }
 
         public void BindEdgeHub(IEdgeHub edgeHubInstance)
@@ -125,7 +128,8 @@ namespace Microsoft.Azure.Devices.Edge.Hub.CloudProxy
                     this.edgeHubTokenProvider,
                     this.deviceScopeIdentitiesCache,
                     this.idleTimeout,
-                    this.closeOnIdleTimeout);
+                    this.closeOnIdleTimeout,
+                    this.operationTimeout);
 
                 await cloudConnection.CreateOrUpdateAsync(identity);
                 Events.SuccessCreatingCloudConnection(identity.Identity);
