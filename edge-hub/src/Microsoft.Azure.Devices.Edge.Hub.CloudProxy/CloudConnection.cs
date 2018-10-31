@@ -66,6 +66,7 @@ namespace Microsoft.Azure.Devices.Edge.Hub.CloudProxy
             this.closeOnIdleTimeout = closeOnIdleTimeout;
             this.edgeHubTokenProvider = Preconditions.CheckNotNull(edgeHubTokenProvider, nameof(edgeHubTokenProvider));
             this.deviceScopeIdentitiesCache = Preconditions.CheckNotNull(deviceScopeIdentitiesCache, nameof(deviceScopeIdentitiesCache));
+            this.operationTimeout = operationTimeout;
         }
 
         public Option<ICloudProxy> CloudProxy => this.cloudProxy.Filter(cp => cp.IsActive);
@@ -476,7 +477,7 @@ namespace Microsoft.Azure.Devices.Edge.Hub.CloudProxy
                 string transportType = transportSettings.Length == 1
                     ? TransportName(transportSettings[0].GetTransportType())
                     : transportSettings.Select(t => TransportName(t.GetTransportType())).Join("/");
-                Log.LogInformation((int)EventIds.TransportConnected, $"Created cloud proxy for client {identity.Id} via {transportType}, with client operation timeout {timeout}.");
+                Log.LogInformation((int)EventIds.TransportConnected, $"Created cloud proxy for client {identity.Id} via {transportType}, with client operation timeout {timeout.TotalSeconds} seconds.");
             }
 
             internal static void GetNewToken(string id)
