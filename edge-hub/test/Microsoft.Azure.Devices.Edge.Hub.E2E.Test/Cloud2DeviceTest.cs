@@ -15,7 +15,6 @@ namespace Microsoft.Azure.Devices.Edge.Hub.E2E.Test
     using Message = Microsoft.Azure.Devices.Message;
 
     [Integration]
-    [Collection("Microsoft.Azure.Devices.Edge.Hub.E2E.Test")]
     [TestCaseOrderer("Microsoft.Azure.Devices.Edge.Util.Test.PriorityOrderer", "Microsoft.Azure.Devices.Edge.Util.Test")]
     public class Cloud2DeviceTest : IClassFixture<ProtocolHeadFixture>
     {

@@ -24,7 +24,6 @@ namespace Microsoft.Azure.Devices.Edge.Hub.E2E.Test
     using Xunit;
 
     [Integration]
-    [Collection("Microsoft.Azure.Devices.Edge.Hub.E2E.Test")]
     public class EdgeHubConnectionTest : IClassFixture<ProtocolHeadFixture>
     {
         const string EdgeHubModuleId = "$edgeHub";

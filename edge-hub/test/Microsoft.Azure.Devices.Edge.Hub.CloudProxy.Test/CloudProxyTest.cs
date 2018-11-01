@@ -20,7 +20,6 @@ namespace Microsoft.Azure.Devices.Edge.Hub.CloudProxy.Test
     using Xunit;
 
     [Integration]
-    [Collection("Microsoft.Azure.Devices.Edge.Hub.CloudProxy.Test")]
     [TestCaseOrderer("Microsoft.Azure.Devices.Edge.Util.Test.PriorityOrderer", "Microsoft.Azure.Devices.Edge.Util.Test")]
     public class CloudProxyTest
     {
