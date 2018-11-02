@@ -76,27 +76,53 @@ else {
 Write-Host "Running tests in all test projects with filter '$Filter'."
 $Success = $True
 foreach ($Project in (Get-ChildItem $BuildRepositoryLocalPath -Include $TEST_PROJ_PATTERN -Recurse)) {
-    Write-Host "Running tests for $Project."
-    if (Test-Path $OPENCOVER -PathType "Leaf") {
-		Write-Host "Run command: $OPENCOVER -register:user -target:$DOTNET_PATH -targetargs:'$BaseTestCommand $Project' -skipautoprops -hideskipped:All -oldstyle -output:$CODE_COVERAGE -mergeoutput:$CODE_COVERAGE -returntargetcode ..."
-        &$OPENCOVER `
-            -register:user `
-            -target:$DOTNET_PATH `
-            -targetargs:"$BaseTestCommand $Project" `
-            -skipautoprops `
-            -hideskipped:All `
-            -oldstyle `
-            -output:$CODE_COVERAGE `
-            -mergeoutput:$CODE_COVERAGE `
-            -returntargetcode `
-			-filter:"+[*]* -[Moq*]* -[App.Metrics.Reporting*]*"
+    Write-Host "Prepare to run job for testing for $Project."
+    
+	$scriptblock = {
+        param($testProject, $DOTNET_PATH, $BaseTestCommand, $BuildBinariesDirectory, $OPENCOVER, $CODE_COVERAGE) 
+    
+	    Write-Host "[Start running tests for '$testProject' inside a job]"
+        if (Test-Path $OPENCOVER -PathType "Leaf") {
+		    Write-Host "Run command: $OPENCOVER -register:user -target:$DOTNET_PATH -targetargs:'$BaseTestCommand $Project' -skipautoprops -hideskipped:All -oldstyle -output:$CODE_COVERAGE -mergeoutput:$CODE_COVERAGE -returntargetcode ..."
+            &$OPENCOVER `
+                -register:user `
+                -target:$DOTNET_PATH `
+                -targetargs:"$BaseTestCommand $Project" `
+                -skipautoprops `
+                -hideskipped:All `
+                -oldstyle `
+                -output:$CODE_COVERAGE `
+                -mergeoutput:$CODE_COVERAGE `
+                -returntargetcode `
+			    -filter:"+[*]* -[Moq*]* -[App.Metrics.Reporting*]*"
+	    }
+	    else {
+		    Write-Host "Run command: '" + $DOTNET_PATH + "' " + $BaseTestCommand " -o " + $BuildBinariesDirectory + " " + $Project
+            Invoke-Expression "&`"$DOTNET_PATH`" $BaseTestCommand -o $BuildBinariesDirectory $Project"
+        }
+        Write-Host "[Complete running tests for '$testProject' inside a job]"
+		
+        $testResult = "$testProject project test passed."
+        if ($LASTEXITCODE -ne 0)
+        {
+            $testResult = "$testProject project test failed."
+        }
+	
+        return $testResult + [Environment]::NewLine
     }
-    else {
-		Write-Host "Run command: '" + $DOTNET_PATH + "' " + $BaseTestCommand " -o " + $BuildBinariesDirectory + " " + $Project
-        Invoke-Expression "&`"$DOTNET_PATH`" $BaseTestCommand -o $BuildBinariesDirectory $Project"
-    }
-
+	
+    Write-Host "Start a job to run tests for $Project."
+    Start-Job $scriptBlock -ArgumentList $Project $DOTNET_PATH $BaseTestCommand $BuildBinariesDirectory $OPENCOVER $CODE_COVERAGE
+	
     $Success = $Success -and $LASTEXITCODE -eq 0
+}
+
+$results = Get-Job | Receive-Job
+Write-Host $results
+
+if ($results -like '*project test failed*')
+{
+  $Success = $False
 }
 
 <#
