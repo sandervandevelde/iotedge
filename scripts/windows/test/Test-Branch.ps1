@@ -98,7 +98,7 @@ foreach ($Project in (Get-ChildItem $BuildRepositoryLocalPath -Include $TEST_PRO
 	    }
 	    else {
 		    Write-Host "Run command: '" + $DOTNET_PATH + "' " + $BaseTestCommand " -o " + $BuildBinariesDirectory + " " + $Project
-            Invoke-Expression "&`"$DOTNET_PATH`" $BaseTestCommand -o $BuildBinariesDirectory $Project"
+            &"$DOTNET_PATH" $BaseTestCommand -o $BuildBinariesDirectory $Project
         }
         Write-Host "[Complete running tests for '$testProject' inside a job]"
 		
