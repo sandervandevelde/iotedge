@@ -4,6 +4,7 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Http.Middleware
     using System;
     using System.Collections.Generic;
     using System.Linq;
+    using System.Security.Cryptography.X509Certificates;
     using System.Threading.Tasks;
     using Microsoft.AspNetCore.Builder;
     using Microsoft.AspNetCore.Http;
@@ -61,76 +62,86 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Http.Middleware
 
         internal async Task<(bool, string)> AuthenticateRequest(HttpContext context)
         {
-            // Authorization header may be present in the QueryNameValuePairs as per Azure standards,           
-            // So check in the query parameters first.             
-            List<string> authorizationQueryParameters = context.Request.Query
-                .Where(p => p.Key.Equals(HeaderNames.Authorization, StringComparison.OrdinalIgnoreCase))
-                .SelectMany(p => p.Value)
-                .ToList();
+            X509Certificate2 clientCertificate = context.Connection.ClientCertificate;
+            string authHeader = null;
 
-            if (!(context.Request.Headers.TryGetValue(HeaderNames.Authorization, out StringValues authorizationHeaderValues)
-                && authorizationQueryParameters.Count == 0))
+            if (clientCertificate != null)
             {
-                return LogAndReturnFailure("Authorization header missing");
+                return LogAndReturnFailure("X509 authorization not supported\r\n");
             }
-            else if (authorizationQueryParameters.Count != 1 && authorizationHeaderValues.Count != 1)
+            else
             {
-                return LogAndReturnFailure("Invalid authorization header count");
-            }
+                // Authorization header may be present in the QueryNameValuePairs as per Azure standards,
+                // So check in the query parameters first.
+                List<string> authorizationQueryParameters = context.Request.Query
+                    .Where(p => p.Key.Equals(HeaderNames.Authorization, StringComparison.OrdinalIgnoreCase))
+                    .SelectMany(p => p.Value)
+                    .ToList();
 
-            string authHeader = authorizationQueryParameters.Count == 1
-                ? authorizationQueryParameters.First()
-                : authorizationHeaderValues.First();
-
-            if (!authHeader.StartsWith("SharedAccessSignature", StringComparison.OrdinalIgnoreCase))
-            {
-                return LogAndReturnFailure("Invalid Authorization header. Only SharedAccessSignature is supported.");
-            }
-
-            try
-            {
-                SharedAccessSignature sharedAccessSignature = SharedAccessSignature.Parse(this.iotHubName, authHeader);
-                if (sharedAccessSignature.IsExpired())
+                if (!(context.Request.Headers.TryGetValue(HeaderNames.Authorization, out StringValues authorizationHeaderValues)
+                    && authorizationQueryParameters.Count == 0))
                 {
-                    return LogAndReturnFailure("SharedAccessSignature is expired");
+                    return LogAndReturnFailure("Authorization header missing");
                 }
-            }
-            catch (Exception ex)
-            {
-                return LogAndReturnFailure($"Cannot parse SharedAccessSignature because of the following error - {ex.Message}");
-            }
+                else if (authorizationQueryParameters.Count != 1 && authorizationHeaderValues.Count != 1)
+                {
+                    return LogAndReturnFailure("Invalid authorization header count");
+                }
 
-            if (!context.Request.Headers.TryGetValue(HttpConstants.IdHeaderKey, out StringValues clientIds) || clientIds.Count == 0)
-            {
-                return LogAndReturnFailure("Request header does not contain ModuleId");
-            }
-            string clientId = clientIds.First();
-            string[] clientIdParts = clientId.Split(new[] { '/' }, 2, StringSplitOptions.RemoveEmptyEntries);
-            if (clientIdParts.Length != 2)
-            {
-                return LogAndReturnFailure("Id header doesn't contain device Id and module Id as expected.");
-            }
-            string deviceId = clientIdParts[0];
-            string moduleId = clientIdParts[1];
+                authHeader = authorizationQueryParameters.Count == 1
+                    ? authorizationQueryParameters.First()
+                    : authorizationHeaderValues.First();
 
-            IClientCredentials clientCredentials = this.identityFactory.GetWithSasToken(deviceId, moduleId, string.Empty, authHeader);
-            IIdentity identity = clientCredentials.Identity;
-            IAuthenticator authenticator = await this.authenticatorTask;
+                if (!authHeader.StartsWith("SharedAccessSignature", StringComparison.OrdinalIgnoreCase))
+                {
+                    return LogAndReturnFailure("Invalid Authorization header. Only SharedAccessSignature is supported.");
+                }
 
-            // A downstream module cannot invoke a method on a device by connecting to EdgeHub
-            if (deviceId != this.edgeDeviceId)
-            {
-                return LogAndReturnFailure($"Module {moduleId} on device {deviceId} cannot invoke methods. Only modules on IoT Edge device {this.edgeDeviceId} can invoke methods.");
+                try
+                {
+                    SharedAccessSignature sharedAccessSignature = SharedAccessSignature.Parse(this.iotHubName, authHeader);
+                    if (sharedAccessSignature.IsExpired())
+                    {
+                        return LogAndReturnFailure("SharedAccessSignature is expired");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    return LogAndReturnFailure($"Cannot parse SharedAccessSignature because of the following error - {ex.Message}");
+                }
+
+                if (!context.Request.Headers.TryGetValue(HttpConstants.IdHeaderKey, out StringValues clientIds) || clientIds.Count == 0)
+                {
+                    return LogAndReturnFailure("Request header does not contain ModuleId");
+                }
+                string clientId = clientIds.First();
+                string[] clientIdParts = clientId.Split(new[] { '/' }, 2, StringSplitOptions.RemoveEmptyEntries);
+                if (clientIdParts.Length != 2)
+                {
+                    return LogAndReturnFailure("Id header doesn't contain device Id and module Id as expected.");
+                }
+                string deviceId = clientIdParts[0];
+                string moduleId = clientIdParts[1];
+
+                IClientCredentials clientCredentials = this.identityFactory.GetWithSasToken(deviceId, moduleId, string.Empty, authHeader);
+                IIdentity identity = clientCredentials.Identity;
+                IAuthenticator authenticator = await this.authenticatorTask;
+
+                // A downstream module cannot invoke a method on a device by connecting to EdgeHub
+                if (deviceId != this.edgeDeviceId)
+                {
+                    return LogAndReturnFailure($"Module {moduleId} on device {deviceId} cannot invoke methods. Only modules on IoT Edge device {this.edgeDeviceId} can invoke methods.");
+                }
+
+                if (!await authenticator.AuthenticateAsync(clientCredentials))
+                {
+                    return LogAndReturnFailure($"Unable to authenticate device with Id {identity.Id}");
+                }
+
+                context.Items.Add(HttpConstants.IdentityKey, identity);
+                Events.AuthenticationSucceeded(identity);
+                return (true, string.Empty);
             }
-
-            if (!await authenticator.AuthenticateAsync(clientCredentials))
-            {
-                return LogAndReturnFailure($"Unable to authenticate device with Id {identity.Id}");
-            }
-
-            context.Items.Add(HttpConstants.IdentityKey, identity);
-            Events.AuthenticationSucceeded(identity);
-            return (true, string.Empty);
         }
 
         static (bool, string) LogAndReturnFailure(string message, Exception ex = null)

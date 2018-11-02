@@ -12,6 +12,7 @@ namespace Microsoft.Azure.Devices.Edge.Util
     using Microsoft.Azure.Devices.Edge.Util.Edged;
     using Microsoft.Azure.Devices.Edge.Util.Edged.GeneratedCode;
     using Microsoft.Extensions.Logging;
+    using Org.BouncyCastle.Crypto;
     using Org.BouncyCastle.Crypto.Parameters;
     using Org.BouncyCastle.OpenSsl;
     using Org.BouncyCastle.Pkcs;
@@ -288,6 +289,10 @@ namespace Microsoft.Azure.Devices.Edge.Util
                 if (certObject is Org.BouncyCastle.X509.X509Certificate x509Cert)
                 {
                     chain.Add(new X509CertificateEntry(x509Cert));
+                }
+                if (certObject is AsymmetricCipherKeyPair)
+                {
+                    certObject = ((AsymmetricCipherKeyPair)certObject).Private;
                 }
                 if (certObject is RsaPrivateCrtKeyParameters)
                 {
