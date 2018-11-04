@@ -82,24 +82,24 @@ foreach ($Project in (Get-ChildItem $BuildRepositoryLocalPath -Include $TEST_PRO
         param($testProject, $DOTNET_PATH, $BaseTestCommand, $BuildBinariesDirectory, $OPENCOVER, $CODE_COVERAGE) 
     
 	    Write-Host "[Start running tests for '$testProject' inside a job]"
-        if (Test-Path $OPENCOVER -PathType "Leaf") {
-		    Write-Host "Run command: $OPENCOVER -register:user -target:$DOTNET_PATH -targetargs:'$BaseTestCommand $Project' -skipautoprops -hideskipped:All -oldstyle -output:$CODE_COVERAGE -mergeoutput:$CODE_COVERAGE -returntargetcode ..."
-            &$OPENCOVER `
-                -register:user `
-                -target:$DOTNET_PATH `
-                -targetargs:"$BaseTestCommand $Project" `
-                -skipautoprops `
-                -hideskipped:All `
-                -oldstyle `
-                -output:$CODE_COVERAGE `
-                -mergeoutput:$CODE_COVERAGE `
-                -returntargetcode `
-			    -filter:"+[*]* -[Moq*]* -[App.Metrics.Reporting*]*"
-	    }
-	    else {
+        # if (Test-Path $OPENCOVER -PathType "Leaf") {
+		    # Write-Host "Run command: $OPENCOVER -register:user -target:$DOTNET_PATH -targetargs:'$BaseTestCommand $Project' -skipautoprops -hideskipped:All -oldstyle -output:$CODE_COVERAGE -mergeoutput:$CODE_COVERAGE -returntargetcode ..."
+            # &$OPENCOVER `
+                # -register:user `
+                # -target:$DOTNET_PATH `
+                # -targetargs:"$BaseTestCommand $Project" `
+                # -skipautoprops `
+                # -hideskipped:All `
+                # -oldstyle `
+                # -output:$CODE_COVERAGE `
+                # -mergeoutput:$CODE_COVERAGE `
+                # -returntargetcode `
+			    # -filter:"+[*]* -[Moq*]* -[App.Metrics.Reporting*]*"
+	    # }
+	    # else {
 		    Write-Host "Run command: '" + $DOTNET_PATH + "' " + $BaseTestCommand " -o " + $BuildBinariesDirectory + " " + $Project
-            &"$DOTNET_PATH" $BaseTestCommand -o $BuildBinariesDirectory $Project
-        }
+            dotnet $BaseTestCommand -o $BuildBinariesDirectory $Project
+        # }
         Write-Host "[Complete running tests for '$testProject' inside a job]"
 		
         $testResult = "$testProject project test passed."
