@@ -86,13 +86,13 @@ foreach ($Project in (Get-ChildItem $BuildRepositoryLocalPath -Include $TEST_PRO
     
 	    Write-Host "[Start running tests for '$testProject' inside a job]"
         if (test-path $opencover -pathtype "leaf") {
-		    write-host "run command: $opencover -register:user -target:$dotnet_path -targetargs:'$basetestcommand $project' -skipautoprops -hideskipped:all -oldstyle -output:$code_coverage -mergeoutput:$code_coverage -returntargetcode ..."
+		    write-host "run command: $opencover -register:user -target:$dotnet_path -targetargs:'$basetestcommand $testProject' -skipautoprops -hideskipped:all -oldstyle -output:$code_coverage -mergeoutput:$code_coverage -returntargetcode ..."
             
-			Invoke-Expression "$using:OpenCoverCommand -register:user -target:$dotnet_path -targetargs:`"$basetestcommand $project`" -skipautoprops -hideskipped:all -oldstyle -output:$code_coverage -mergeoutput:$code_coverage -returntargetcode -filter:`"+[*]* -[moq*]* -[app.metrics.reporting*]*`""
+			Invoke-Expression "$using:OpenCoverCommand -register:user -target:$dotnet_path -targetargs:`"$basetestcommand $testProject`" -skipautoprops -hideskipped:all -oldstyle -output:$code_coverage -mergeoutput:$code_coverage -returntargetcode -filter:`"+[*]* -[moq*]* -[app.metrics.reporting*]*`""
 	    }
 	    else {
-		    Write-Host "Run command: '" + $DOTNET_PATH + "' " + $BaseTestCommand " -o " + $BuildBinariesDirectory + " " + $Project
-            Invoke-Expression "$using:DotNetCommand $BaseTestCommand -o $BuildBinariesDirectory $Project"
+		    Write-Host "Run command: $using:DotNetCommand $BaseTestCommand -o $BuildBinariesDirectory $testProject"
+            Invoke-Expression "$using:DotNetCommand $BaseTestCommand -o $BuildBinariesDirectory $testProject"
         }
         Write-Host "[Complete running tests for '$testProject' inside a job]"
 		
@@ -106,13 +106,24 @@ foreach ($Project in (Get-ChildItem $BuildRepositoryLocalPath -Include $TEST_PRO
     }
 	
     Write-Host "Start a job to run tests for $Project."
-    Start-Job $scriptBlock -ArgumentList $Project $DOTNET_PATH $BaseTestCommand $BuildBinariesDirectory $OPENCOVER $CODE_COVERAGE
+    Start-Job $scriptBlock -ArgumentList $Project,$DOTNET_PATH,$BaseTestCommand,$BuildBinariesDirectory,$OPENCOVER,$CODE_COVERAGE
 	
     $Success = $Success -and $LASTEXITCODE -eq 0
 }
 
+# Wait for all to complete
+$startedAt=Get-Date
+Write-Host "Started at $startedAt, waiting for all tests"
+While (Get-Job -State "Running") {
+  Write-Host -NoNewline "..." 
+  Start-Sleep 5 
+}
+
 $results = Get-Job | Receive-Job
 Write-Host $results
+
+$completedAt=Get-Date
+Write-Host "Completed at $completedAt, used $((NEW-TIMESPAN -Start $startedAt -End $completedAt).TotalMinutes) minutes"
 
 if ($results -like '*project test failed*')
 {
