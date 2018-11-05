@@ -40,6 +40,10 @@ if (-not $BuildBinariesDirectory) {
     $BuildBinariesDirectory = DefaultBuildBinariesDirectory $BuildRepositoryLocalPath
 }
 
+Write-Host "AgentWorkFolder=$AgentWorkFolder"
+Write-Host "BuildRepositoryLocalPath=$BuildRepositoryLocalPath"
+Write-Host "BuildBinariesDirectory=$BuildBinariesDirectory"
+
 $TEST_PROJ_PATTERN = "Microsoft.Azure*test.csproj"
 $LOGGER_ARG = "trx;LogFileName=result.trx"
 
