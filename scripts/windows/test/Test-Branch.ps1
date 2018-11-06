@@ -85,33 +85,42 @@ $OpenCoverCommand = "&`"$OPENCOVER`""
 foreach ($Project in (Get-ChildItem $BuildRepositoryLocalPath -Include $TEST_PROJ_PATTERN -Recurse)) {
     Write-Host "Prepare to run job for testing for $Project."
 
-	$scriptblock = {
+    $scriptblock = {
         param($testProject, $DOTNET_PATH, $BaseTestCommand, $BuildBinariesDirectory, $OPENCOVER, $CODE_COVERAGE) 
-    
-	    Write-Host "[Start running tests for '$testProject' inside a job]"
+        
+        Write-Host "[Start running tests for '$testProject' inside a job]"
         if (test-path $opencover -pathtype "leaf") {
-		    write-host "run command: $opencover -register:user -target:$dotnet_path -targetargs:'$basetestcommand $testProject' -skipautoprops -hideskipped:all -oldstyle -output:$code_coverage -mergeoutput:$code_coverage -returntargetcode ..."
-            
-			Invoke-Expression "$using:OpenCoverCommand -register:user -target:$dotnet_path -targetargs:`"$basetestcommand $testProject`" -skipautoprops -hideskipped:all -oldstyle -output:$code_coverage -mergeoutput:$code_coverage -returntargetcode -filter:`"+[*]* -[moq*]* -[app.metrics.reporting*]*`""
-	    }
-	    else {
-		    Write-Host "Run command: $using:DotNetCommand $BaseTestCommand -o $BuildBinariesDirectory $testProject"
-            Invoke-Expression "$using:DotNetCommand $BaseTestCommand -o $BuildBinariesDirectory $testProject"
+            &$OPENCOVER `
+                -register:user `
+                -target:$DOTNET_PATH `
+                -targetargs:"$BaseTestCommand $testProject" `
+                -skipautoprops `
+                -hideskipped:All `
+                -oldstyle `
+                -output:$CODE_COVERAGE `
+                -mergeoutput:$CODE_COVERAGE `
+                -returntargetcode `
+                -filter:"+[*]* -[Moq*]* -[App.Metrics.Reporting*]*"
         }
+        else 
+        {
+            Write-Host "Run command: &`"$DOTNET_PATH`" $BaseTestCommand -o $BuildBinariesDirectory $testProject"
+            Invoke-Expression "&`"$DOTNET_PATH`" $BaseTestCommand -o $BuildBinariesDirectory $testProject"
+        }
+
         Write-Host "[Complete running tests for '$testProject' inside a job]"
-		
         $testResult = "$testProject project test passed."
         if ($LASTEXITCODE -ne 0)
         {
             $testResult = "$testProject project test failed."
         }
-	
+
         return $testResult + [Environment]::NewLine
     }
-	
+
     Write-Host "Start a job to run tests for $Project."
     Start-Job $scriptBlock -ArgumentList $Project,$DOTNET_PATH,$BaseTestCommand,$BuildBinariesDirectory,$OPENCOVER,$CODE_COVERAGE
-	
+
     $Success = $Success -and $LASTEXITCODE -eq 0
 }
 
@@ -119,8 +128,8 @@ foreach ($Project in (Get-ChildItem $BuildRepositoryLocalPath -Include $TEST_PRO
 $startedAt=Get-Date
 Write-Host "Started at $startedAt, waiting for all tests"
 While (Get-Job -State "Running") {
-  Write-Host -NoNewline "..." 
-  Start-Sleep 5 
+    Write-Host -NoNewline "..." 
+    Start-Sleep 5 
 }
 
 $results = Get-Job | Receive-Job
@@ -131,7 +140,7 @@ Write-Host "Completed at $completedAt, used $((NEW-TIMESPAN -Start $startedAt -E
 
 if ($results -like '*project test failed*')
 {
-  $Success = $False
+    $Success = $False
 }
 
 <#
