@@ -78,12 +78,12 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Service
 
             app.UseAuthenticationMiddleware(iotHubHostname, edgeDeviceId);
 
-            app.UseMvc(
-                builder =>
-                {
-                    builder.MapRoute("DeviceDirectMethod", "twins/{deviceId}/methods", new { controller = "Twins", action = "InvokeDeviceMethodAsync" });
-                    builder.MapRoute("ModuleDirectMethod", "twins/{deviceId}/modules/{moduleId}/methods", new { controller = "Twins", action = "InvokeModuleMethodAsync" });
-                });
+            app.UseMvc();
+                //builder =>
+                //{
+                //    builder.MapRoute("DeviceDirectMethod", "twins/{deviceId}/methods", new { controller = "Twins", action = "InvokeDeviceMethodAsync" });
+                //    builder.MapRoute("ModuleDirectMethod", "twins/{deviceId}/modules/{moduleId}/methods", new { controller = "Twins", action = "InvokeModuleMethodAsync" });
+                //});
         }
     }
 }
