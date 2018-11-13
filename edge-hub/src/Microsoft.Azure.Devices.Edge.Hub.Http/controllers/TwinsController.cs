@@ -1,6 +1,7 @@
 
 namespace Microsoft.Azure.Devices.Edge.Hub.Http.Controllers
 {
+    using System;
     using System.Net;
     using System.Text;
     using System.Threading.Tasks;
@@ -28,6 +29,8 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Http.Controllers
 
         public override void OnActionExecuting(ActionExecutingContext context)
         {
+            Console.WriteLine("TwinsController OnActionExecuting called.");
+
             if (context.HttpContext.Items.TryGetValue(HttpConstants.IdentityKey, out object contextIdentity))
             {
                 this.identity = contextIdentity as IIdentity;
@@ -40,6 +43,8 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Http.Controllers
         [Route("twins/{deviceId}/methods")]
         public Task<IActionResult> InvokeDeviceMethodAsync([FromRoute] string deviceId, [FromBody] MethodRequest methodRequest)
         {
+            Console.WriteLine("TwinsController InvokeDeviceMethodAsync called.");
+
             deviceId = WebUtility.UrlDecode(Preconditions.CheckNonWhiteSpace(deviceId, nameof(deviceId)));
             this.validator.Validate(methodRequest);
 
@@ -52,6 +57,8 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Http.Controllers
         [Route("twins/{deviceId}/modules/{moduleId}/methods")]
         public Task<IActionResult> InvokeModuleMethodAsync([FromRoute] string deviceId, [FromRoute] string moduleId, [FromBody] MethodRequest methodRequest)
         {
+            Console.WriteLine("TwinsController InvokeModuleMethodAsync called.");
+
             deviceId = WebUtility.UrlDecode(Preconditions.CheckNonWhiteSpace(deviceId, nameof(deviceId)));
             moduleId = WebUtility.UrlDecode(Preconditions.CheckNonWhiteSpace(moduleId, nameof(moduleId)));
             this.validator.Validate(methodRequest);
