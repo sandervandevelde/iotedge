@@ -36,6 +36,7 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Http.Controllers
         }
 
         [HttpPost]
+        [ActionName("InvokeDeviceMethodAsync")]
         [Route("twins/{deviceId}/methods")]
         public Task<IActionResult> InvokeDeviceMethodAsync([FromRoute] string deviceId, [FromBody] MethodRequest methodRequest)
         {
@@ -47,6 +48,7 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Http.Controllers
         }
 
         [HttpPost]
+        [ActionName("InvokeModuleMethodAsync")]
         [Route("twins/{deviceId}/modules/{moduleId}/methods")]
         public Task<IActionResult> InvokeModuleMethodAsync([FromRoute] string deviceId, [FromRoute] string moduleId, [FromBody] MethodRequest methodRequest)
         {

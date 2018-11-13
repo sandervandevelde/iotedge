@@ -81,8 +81,8 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Service
             app.UseMvc(
                 builder =>
                 {
-                    //builder.MapRoute("DeviceDirectMethod", "twins/{deviceId}/methods", new { controller = "Twins", action = "InvokeDeviceMethodAsync" });
-                    //builder.MapRoute("ModuleDirectMethod", "twins/{deviceId}/modules/{moduleId}/methods", new { controller = "Twins", action = "InvokeModuleMethodAsync" });
+                    builder.MapRoute("DeviceDirectMethod", "twins/{deviceId}/methods", new { controller = "Twins", action = "InvokeDeviceMethodAsync" });
+                    builder.MapRoute("ModuleDirectMethod", "twins/{deviceId}/modules/{moduleId}/methods", new { controller = "Twins", action = "InvokeModuleMethodAsync" });
                     builder.MapRoute("CatchAll", "{*url}", new { controller = "Monitor", action = "Index" });
                 });
         }
