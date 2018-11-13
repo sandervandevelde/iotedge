@@ -27,9 +27,6 @@
             "env": {
               "UpstreamProtocol" : {
                 "value": "<UpstreamProtocol>"
-              },
-              "RuntimeLogLevel" : {
-                "value": "debug"
               }
             }
           },
