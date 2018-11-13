@@ -37,6 +37,7 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Http.Controllers
 
         [HttpPost]
         [Route("twins/{deviceId}/methods")]
+        [ProducesResponseType(typeof(MethodResult), 200)]
         public Task<IActionResult> InvokeDeviceMethodAsync([FromRoute] string deviceId, [FromBody] MethodRequest methodRequest)
         {
             deviceId = WebUtility.UrlDecode(Preconditions.CheckNonWhiteSpace(deviceId, nameof(deviceId)));
@@ -48,6 +49,7 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Http.Controllers
 
         [HttpPost]
         [Route("twins/{deviceId}/modules/{moduleId}/methods")]
+        [ProducesResponseType(typeof(MethodResult), 200)]
         public Task<IActionResult> InvokeModuleMethodAsync([FromRoute] string deviceId, [FromRoute] string moduleId, [FromBody] MethodRequest methodRequest)
         {
             deviceId = WebUtility.UrlDecode(Preconditions.CheckNonWhiteSpace(deviceId, nameof(deviceId)));
