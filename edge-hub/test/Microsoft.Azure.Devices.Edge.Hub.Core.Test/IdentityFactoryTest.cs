@@ -2,6 +2,8 @@
 namespace Microsoft.Azure.Devices.Edge.Hub.Core.Test
 {
     using System;
+    using System.Collections.Generic;
+    using System.Security.Cryptography.X509Certificates;
     using System.Linq;
     using Microsoft.Azure.Devices.Edge.Hub.Core.Device;
     using Microsoft.Azure.Devices.Edge.Hub.Core.Identity;
@@ -98,17 +100,20 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Core.Test
             string deviceId = "device1";
             string moduleId = "module1";
             string deviceClientType = "customDeviceClient1";
+            var clientCertificate = new X509Certificate2();
+            var clientCertChain = new List<X509Certificate2>();
+
             var identityFactory = new ClientCredentialsFactory(iothubHostName, callerProductInfo);
 
             // device test
-            IClientCredentials identityTry1 = identityFactory.GetWithX509Cert(deviceId, null, deviceClientType);
+            IClientCredentials identityTry1 = identityFactory.GetWithX509Cert(deviceId, null, deviceClientType, clientCertificate, clientCertChain);
             Assert.IsType<DeviceIdentity>(identityTry1.Identity);
             Assert.Equal("device1", identityTry1.Identity.Id);
             Assert.Equal($"{callerProductInfo} customDeviceClient1", identityTry1.ProductInfo);
             Assert.Equal(AuthenticationType.X509Cert, identityTry1.AuthenticationType);
 
             // module test
-            IClientCredentials identityTry2 = identityFactory.GetWithX509Cert(deviceId, moduleId, deviceClientType);
+            IClientCredentials identityTry2 = identityFactory.GetWithX509Cert(deviceId, moduleId, deviceClientType, clientCertificate, clientCertChain);
             Assert.IsType<ModuleIdentity>(identityTry2.Identity);
             Assert.Equal("device1/module1", identityTry2.Identity.Id);
             Assert.Equal($"{callerProductInfo} customDeviceClient1", identityTry2.ProductInfo);
