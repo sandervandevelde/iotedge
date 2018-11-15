@@ -210,7 +210,7 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Service.Modules
                     if (this.persistTokens)
                     {
                         IKeyValueStore<string, string> encryptedStore = await GetEncryptedStore(c, "CredentialsCache");
-                        return new TokenCredentialsCache(encryptedStore);
+                        return new PersistedTokenCredentialsCache(encryptedStore);
                     }
                     else
                     {
@@ -224,12 +224,12 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Service.Modules
 
             // Task<IAuthenticator>
             builder.Register(async c =>
-                {                    
+                {
                     IAuthenticator tokenAuthenticator;
                     IAuthenticator certificateAuthenticator;
                     IDeviceScopeIdentitiesCache deviceScopeIdentitiesCache;
                     var credentialsCacheTask = c.Resolve<Task<ICredentialsCache>>();
-                    // be default regardless of how the authenticationMode, X.509 certificate validation will always be scoped
+                    // by default regardless of how the authenticationMode, X.509 certificate validation will always be scoped
                     deviceScopeIdentitiesCache = await c.Resolve<Task<IDeviceScopeIdentitiesCache>>();
                     certificateAuthenticator = new DeviceScopeCertificateAuthenticator(deviceScopeIdentitiesCache, this.iothubHostName, this.edgeDeviceHostName, new NullAuthenticator(), this.trustBundle);
                     switch (this.authenticationMode)
@@ -242,7 +242,7 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Service.Modules
                             tokenAuthenticator = new DeviceScopeTokenAuthenticator(deviceScopeIdentitiesCache, this.iothubHostName, this.edgeDeviceHostName, new NullAuthenticator());
                             break;
 
-                        default:                            
+                        default:
                             IAuthenticator cloudTokenAuthenticator = await this.GetCloudTokenAuthenticator(c);
                             tokenAuthenticator = new DeviceScopeTokenAuthenticator(deviceScopeIdentitiesCache, this.iothubHostName, this.edgeDeviceHostName, cloudTokenAuthenticator);
                             break;
@@ -279,7 +279,7 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Service.Modules
                         deviceScopeIdentitiesCache,
                         TimeSpan.FromMinutes(5),
                         edgeHubCredentials.Identity,
-                        deviceConnectivityManager); 
+                        deviceConnectivityManager);
                     return connectionReauthenticator;
                 })
                 .As<Task<ConnectionReauthenticator>>()

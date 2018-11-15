@@ -1,6 +1,13 @@
 // Copyright (c) Microsoft. All rights reserved.
 
 #![deny(unused_extern_crates, warnings)]
+// Remove this when clippy stops warning about old-style `allow()`,
+// which can only be silenced by enabling a feature and thus requires nightly
+//
+// Ref: https://github.com/rust-lang-nursery/rust-clippy/issues/3159#issuecomment-420530386
+#![allow(renamed_and_removed_lints)]
+#![cfg_attr(feature = "cargo-clippy", deny(clippy, clippy_pedantic))]
+#![cfg_attr(feature = "cargo-clippy", allow(stutter, use_self))]
 
 #[cfg(test)]
 extern crate base64;
@@ -32,6 +39,7 @@ mod identity;
 mod module;
 pub mod pid;
 pub mod watchdog;
+pub mod workload;
 
 pub use authorization::{Authorization, Policy};
 pub use certificate_properties::{CertificateIssuer, CertificateProperties, CertificateType};
@@ -45,6 +53,7 @@ pub use module::{
     LogOptions, LogTail, Module, ModuleRegistry, ModuleRuntime, ModuleRuntimeState, ModuleSpec,
     ModuleStatus, SystemInfo,
 };
+pub use workload::WorkloadConfig;
 
 lazy_static! {
     static ref VERSION: String = option_env!("VERSION")

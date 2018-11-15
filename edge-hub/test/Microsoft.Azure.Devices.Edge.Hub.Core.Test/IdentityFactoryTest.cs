@@ -3,8 +3,8 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Core.Test
 {
     using System;
     using System.Collections.Generic;
-    using System.Security.Cryptography.X509Certificates;
     using System.Linq;
+    using System.Security.Cryptography.X509Certificates;
     using Microsoft.Azure.Devices.Edge.Hub.Core.Device;
     using Microsoft.Azure.Devices.Edge.Hub.Core.Identity;
     using Microsoft.Azure.Devices.Edge.Util.Test.Common;
@@ -71,7 +71,7 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Core.Test
             // device test
             string deviceId = "device1";
             string deviceClientType = "customDeviceClient1";
-            IClientCredentials identityTry1 = identityFactory.GetWithSasToken(deviceId, null, deviceClientType, sasToken);
+            IClientCredentials identityTry1 = identityFactory.GetWithSasToken(deviceId, null, deviceClientType, sasToken, false);
             Assert.IsType<DeviceIdentity>(identityTry1.Identity);
             Assert.IsType<TokenCredentials>(identityTry1);
             Assert.Equal(sasToken, (identityTry1 as ITokenCredentials)?.Token);
@@ -83,7 +83,7 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Core.Test
             deviceId = "device1";
             string moduleId = "module1";
             deviceClientType = "customDeviceClient2";
-            IClientCredentials identityTry2 = identityFactory.GetWithSasToken(deviceId, moduleId, deviceClientType, sasToken);
+            IClientCredentials identityTry2 = identityFactory.GetWithSasToken(deviceId, moduleId, deviceClientType, sasToken, false);
             Assert.IsType<ModuleIdentity>(identityTry2.Identity);
             Assert.IsType<TokenCredentials>(identityTry2);
             Assert.Equal(sasToken, (identityTry2 as ITokenCredentials)?.Token);
@@ -102,7 +102,6 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Core.Test
             string deviceClientType = "customDeviceClient1";
             var clientCertificate = new X509Certificate2();
             var clientCertChain = new List<X509Certificate2>();
-
             var identityFactory = new ClientCredentialsFactory(iothubHostName, callerProductInfo);
 
             // device test

@@ -53,7 +53,7 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Mqtt
                 }
                 else
                 {
-                    deviceCredentials = this.clientCredentialsFactory.GetWithSasToken(deviceId, moduleId, deviceClientType, password);
+                    deviceCredentials = this.clientCredentialsFactory.GetWithSasToken(deviceId, moduleId, deviceClientType, password, false);
                 }
 
                 if (deviceCredentials == null
@@ -77,7 +77,7 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Mqtt
         {
             this.remoteCertificate = certificate == null ? null : new X509Certificate2(certificate);
             this.remoteCertificateChain = chain == null ? new List<X509Certificate2>() :
-                                           chain.ChainElements.Cast<X509ChainElement>().Select(element => element.Certificate).ToList(); 
+                                           chain.ChainElements.Cast<X509ChainElement>().Select(element => element.Certificate).ToList();
 
             return true; // real validation in GetAsync above
         }
