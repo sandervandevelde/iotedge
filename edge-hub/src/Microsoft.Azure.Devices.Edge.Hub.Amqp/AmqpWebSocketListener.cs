@@ -3,8 +3,10 @@
 namespace Microsoft.Azure.Devices.Edge.Hub.Amqp
 {
     using System;
+    using System.Collections.Generic;
     using System.Net;
     using System.Net.WebSockets;
+    using System.Security.Cryptography.X509Certificates;
     using System.Threading.Tasks;
     using Microsoft.Azure.Devices.Edge.Util;
     using Microsoft.Extensions.Logging;
@@ -21,6 +23,11 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Amqp
         }
 
         public async Task ProcessWebSocketRequestAsync(WebSocket webSocket, Option<EndPoint> localEndPoint, EndPoint remoteEndPoint, string correlationId)
+        {
+            await ProcessWebSocketRequestAsync(webSocket, localEndPoint, remoteEndPoint, correlationId, Option.None<X509Certificate2>(), Option.None<IList<X509Certificate2>>());
+        }
+
+        public async Task ProcessWebSocketRequestAsync(WebSocket webSocket, Option<EndPoint> localEndPoint, EndPoint remoteEndPoint, string correlationId, Option<X509Certificate2> clientCert, Option<IList<X509Certificate2>> clientCertChain)
         {
             try
             {

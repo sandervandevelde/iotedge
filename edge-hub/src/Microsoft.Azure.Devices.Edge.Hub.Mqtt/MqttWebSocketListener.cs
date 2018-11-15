@@ -2,13 +2,16 @@
 namespace Microsoft.Azure.Devices.Edge.Hub.Mqtt
 {
     using System;
+    using System.Collections.Generic;
     using System.Net;
     using System.Net.WebSockets;
+    using System.Security.Cryptography.X509Certificates;
     using System.Threading.Tasks;
     using DotNetty.Buffers;
     using DotNetty.Codecs.Mqtt;
     using DotNetty.Transport.Channels;
     using Microsoft.Azure.Devices.Edge.Hub.Core;
+    using Microsoft.Azure.Devices.Edge.Hub.Core.Identity;
     using Microsoft.Azure.Devices.Edge.Util;
     using Microsoft.Azure.Devices.ProtocolGateway.Identity;
     using Microsoft.Azure.Devices.ProtocolGateway.Mqtt;
@@ -20,7 +23,8 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Mqtt
     { 
         readonly Settings settings;
         readonly MessagingBridgeFactoryFunc messagingBridgeFactoryFunc;
-        readonly IDeviceIdentityProvider identityProvider;
+        readonly IAuthenticator authenticator;
+        readonly IClientCredentialsFactory clientCredentialsFactory;
         readonly Func<ISessionStatePersistenceProvider> sessionProviderFactory;
         readonly IEventLoopGroup workerGroup;
         readonly IByteBufferAllocator byteBufferAllocator;
@@ -30,7 +34,8 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Mqtt
         public MqttWebSocketListener(
             Settings settings,
             MessagingBridgeFactoryFunc messagingBridgeFactoryFunc,
-            IDeviceIdentityProvider identityProvider,
+            IAuthenticator authenticator,
+            IClientCredentialsFactory clientCredentialsFactory,
             Func<ISessionStatePersistenceProvider> sessionProviderFactory,
             IEventLoopGroup workerGroup,
             IByteBufferAllocator byteBufferAllocator,
@@ -40,7 +45,8 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Mqtt
         {
             this.settings = Preconditions.CheckNotNull(settings, nameof(settings));
             this.messagingBridgeFactoryFunc = Preconditions.CheckNotNull(messagingBridgeFactoryFunc, nameof(messagingBridgeFactoryFunc));
-            this.identityProvider = Preconditions.CheckNotNull(identityProvider, nameof(identityProvider));
+            this.authenticator = Preconditions.CheckNotNull(authenticator, nameof(authenticator));
+            this.clientCredentialsFactory = Preconditions.CheckNotNull(clientCredentialsFactory, nameof(clientCredentialsFactory));
             this.sessionProviderFactory = Preconditions.CheckNotNull(sessionProviderFactory, nameof(sessionProviderFactory));
             this.workerGroup = Preconditions.CheckNotNull(workerGroup, nameof(workerGroup));
             this.byteBufferAllocator = Preconditions.CheckNotNull(byteBufferAllocator, nameof(byteBufferAllocator));
@@ -52,8 +58,19 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Mqtt
 
         public async Task ProcessWebSocketRequestAsync(WebSocket webSocket, Option<EndPoint> localEndPoint, EndPoint remoteEndPoint, string correlationId)
         {
+            await ProcessWebSocketRequestAsync(webSocket, localEndPoint, remoteEndPoint, correlationId, Option.None<X509Certificate2>(), Option.None<IList<X509Certificate2>>());
+        }
+
+        public async Task ProcessWebSocketRequestAsync(WebSocket webSocket, Option<EndPoint> localEndPoint, EndPoint remoteEndPoint, string correlationId, Option<X509Certificate2> clientCert, Option<IList<X509Certificate2>> clientCertChain)
+        {
             try
             {
+                DeviceIdentityProvider identityProvider = new DeviceIdentityProvider(this.authenticator, this.clientCredentialsFactory, true);
+                if (clientCert.HasValue && clientCertChain.HasValue)
+                {
+                    identityProvider.RemoteCertificateValidationCallback(clientCert.OrDefault(), clientCertChain.GetOrElse(new List<X509Certificate2>()));
+                }
+
                 var serverChannel = new ServerWebSocketChannel(
                     webSocket,
                     remoteEndPoint
@@ -70,7 +87,7 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Mqtt
                         new MqttAdapter(
                             this.settings,
                             this.sessionProviderFactory(),
-                            this.identityProvider,
+                            identityProvider,
                             null,
                             this.messagingBridgeFactoryFunc));
 
