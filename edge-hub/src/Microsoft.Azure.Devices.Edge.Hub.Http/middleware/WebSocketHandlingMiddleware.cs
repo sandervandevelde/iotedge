@@ -2,9 +2,11 @@
 namespace Microsoft.Azure.Devices.Edge.Hub.Http.Middleware
 {
     using System;
+    using System.Collections.Generic;
     using System.Net;
     using System.Net.WebSockets;
     using System.Threading.Tasks;
+    using System.Security.Cryptography.X509Certificates;
     using AspNetCore.Http;
     using Microsoft.AspNetCore.Builder;
     using Microsoft.Azure.Devices.Edge.Hub.Core;
@@ -66,7 +68,13 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Http.Middleware
                 localEndPoint = Option.Some<EndPoint>(new IPEndPoint(context.Connection.LocalIpAddress, context.Connection.LocalPort));
             }
             var remoteEndPoint = new IPEndPoint(context.Connection.RemoteIpAddress, context.Connection.RemotePort);
-            await listener.ProcessWebSocketRequestAsync(webSocket, localEndPoint, remoteEndPoint, correlationId);
+            var cert = await context.Connection.GetClientCertificateAsync();
+            var certChain = context.Connection.GetClientCertificateChain(context);
+            Option<X509Certificate2> clientCertificate = (cert == null) ? Option.None<X509Certificate2>() :
+                                                                          Option.Some<X509Certificate2>(new X509Certificate2(cert));
+            Option<IList<X509Certificate2>> clientCertificateChain = (certChain == null) ? Option.None<IList<X509Certificate2>>() :
+                                                                                    Option.Some<IList<X509Certificate2>>(new List<X509Certificate2>(certChain));
+            await listener.ProcessWebSocketRequestAsync(webSocket, localEndPoint, remoteEndPoint, correlationId, clientCertificate, clientCertificateChain);
 
             Events.WebSocketRequestCompleted(context.TraceIdentifier, correlationId);
         }

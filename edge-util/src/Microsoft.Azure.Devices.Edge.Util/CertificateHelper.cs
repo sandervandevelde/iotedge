@@ -12,6 +12,7 @@ namespace Microsoft.Azure.Devices.Edge.Util
     using Microsoft.Azure.Devices.Edge.Util.Edged;
     using Microsoft.Azure.Devices.Edge.Util.Edged.GeneratedCode;
     using Microsoft.Extensions.Logging;
+    using Org.BouncyCastle.Crypto;
     using Org.BouncyCastle.Crypto.Parameters;
     using Org.BouncyCastle.OpenSsl;
     using Org.BouncyCastle.Pkcs;
@@ -76,11 +77,11 @@ namespace Microsoft.Azure.Devices.Edge.Util
         public static IList<X509Certificate2> GetCertificatesFromChain(X509Chain chainCert) =>
             chainCert.ChainElements.Cast<X509ChainElement>().Select(element => element.Certificate).ToList();
 
-        public static (bool, Option<string>) ValidateCert(X509Certificate2 remoteCertificate, IList<X509Certificate2> remoteCertificateChain, IList<X509Certificate2> caChainCerts)
+        public static (bool, Option<string>) ValidateCert(X509Certificate2 remoteCertificate, IList<X509Certificate2> remoteCertificateChain, IList<X509Certificate2> trustedCACerts)
         {
             Preconditions.CheckNotNull(remoteCertificate);
             Preconditions.CheckNotNull(remoteCertificateChain);
-            Preconditions.CheckNotNull(caChainCerts);
+            Preconditions.CheckNotNull(trustedCACerts);
 
             bool match = false;
 
@@ -89,11 +90,12 @@ namespace Microsoft.Azure.Devices.Edge.Util
             {
                 return (false, errors);
             }
+
             foreach (X509Certificate2 chainElement in remoteCerts)
             {
                 string thumbprint = GetSha256Thumbprint(chainElement);
                 if (remoteCertificateChain.Any(cert => GetSha256Thumbprint(cert) == thumbprint) &&
-                    caChainCerts.Any(cert => GetSha256Thumbprint(cert) == thumbprint))
+                    trustedCACerts.Any(cert => GetSha256Thumbprint(cert) == thumbprint))
                 {
                     match = true;
                     break;
@@ -110,38 +112,82 @@ namespace Microsoft.Azure.Devices.Edge.Util
             }
         }
 
-        public static bool ValidateClientCert(X509Certificate certificate, X509Chain chain, Option<IList<X509Certificate2>> caChainCerts, ILogger logger)
+        public static bool ValidateCommonName(X509Certificate2 certificate, string commonName)
+        {
+            Preconditions.CheckNotNull(certificate);
+            Preconditions.CheckNotNull(commonName);
+
+            return certificate.GetNameInfo(X509NameType.SimpleName, false) == commonName;
+        }
+
+        public static bool ValidateCertificateThumbprint(X509Certificate2 certificate, IList<string> thumbprints)
+        {
+            Preconditions.CheckNotNull(certificate);
+            Preconditions.CheckNotNull(thumbprints);
+
+            return thumbprints.Any(th => th.ToLower() == certificate.Thumbprint.ToLower());
+        }
+
+        public static bool ValidateClientCert(X509Certificate certificate, X509Chain chain, ILogger logger)
+        {
+            X509Certificate2 remoteCertificate = certificate == null ? null : new X509Certificate2(certificate);
+            IList<X509Certificate2> remoteCertificateChain = chain == null ? null : GetCertificatesFromChain(chain);
+            return ValidateClientCert(remoteCertificate, remoteCertificateChain, logger);
+        }
+
+        public static bool ValidateClientCert(X509Certificate2 certificate, IList<X509Certificate2> chain, ILogger logger)
         {
             Preconditions.CheckNotNull(certificate);
             Preconditions.CheckNotNull(chain);
             Preconditions.CheckNotNull(logger);
 
-            var newCert = new X509Certificate2(certificate);
-
-            if (!caChainCerts.HasValue)
-            {
-                logger.LogWarning($"Cannot validate certificate with subject: {certificate.Subject}. Hub CA cert chain missing.");
-                return false;
-            }
-
             DateTime currentTime = DateTime.Now;
-            if (newCert.NotAfter < currentTime)
+
+            if (certificate.NotAfter < currentTime)
             {
-                logger.LogWarning($"Certificate with subject: {newCert.Subject} has expired");
+                logger.LogWarning($"Certificate with subject: {certificate.Subject} has expired");
                 return false;
             }
 
-            if (newCert.NotBefore > currentTime)
+            if (certificate.NotBefore > currentTime)
             {
-                logger.LogWarning($"Certificate with subject: {newCert.Subject} is not valid");
+                logger.LogWarning($"Certificate with subject: {certificate.Subject} is not valid");
                 return false;
             }
 
-            IList<X509Certificate2> certChain = GetCertificatesFromChain(chain);
+            // https://tools.ietf.org/html/rfc3280#section-4.2.1.3
+            // The keyCertSign bit is asserted when the subject public key is
+            // used for verifying a signature on public key certificates.  If the
+            // keyCertSign bit is asserted, then the cA bit in the basic
+            // constraints extension (section 4.2.1.10) MUST also be asserted.
+
+            // https://tools.ietf.org/html/rfc3280#section-4.2.1.10
+            // The cA boolean indicates whether the certified public key belongs to
+            // a CA.  If the cA boolean is not asserted, then the keyCertSign bit in
+            // the key usage extension MUST NOT be asserted.
+            //var basicConstraints = certificate.Extensions.OfType<X509BasicConstraintsExtension>();
+            //foreach (X509BasicConstraintsExtension extension in basicConstraints)
+            //{
+            //    if (extension.CertificateAuthority)
+            //    {
+            //        logger.LogWarning($"Client certificate with basic constraints as TRUE is not permitted");
+            //        return false;
+            //    }
+            //}
+
+            return true;
+        }
+
+        public static bool ValidateClientCertCAChain(X509Certificate2 certificate, IList<X509Certificate2> chain, IList<X509Certificate2> trustedCACerts, ILogger logger)
+        {
+            Preconditions.CheckNotNull(certificate);
+            Preconditions.CheckNotNull(chain);
+            Preconditions.CheckNotNull(trustedCACerts);
+            Preconditions.CheckNotNull(logger);
 
             bool result = false;
             Option<string> errors = Option.None<string>();
-            caChainCerts.ForEach(v => { (result, errors) = ValidateCert(newCert, certChain, v); });
+            (result, errors) = ValidateCert(certificate, chain, trustedCACerts);
             if (errors.HasValue)
             {
                 errors.ForEach(v => logger.LogWarning(v));
@@ -149,6 +195,40 @@ namespace Microsoft.Azure.Devices.Edge.Util
 
             return result;
         }
+
+        //public static IEnumerable<string> ParseSujectAlternativeNames(X509Certificate2 cert)
+        //{
+        //    Regex sanRex = new Regex(@"^URI =(.*)", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+        //    var sanList = from X509Extension ext in cert.Extensions
+        //                  where ext.Oid.FriendlyName.Equals("Subject Alternative Name", StringComparison.Ordinal)
+        //                  let data = new AsnEncodedData(ext.Oid, ext.RawData)
+        //                  let text = data.Format(true)
+        //                  from line in text.Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+        //                  let match = sanRex.Match(line)
+        //                  where match.Success && match.Groups.Count > 0 && !string.IsNullOrEmpty(match.Groups[1].Value)
+        //                  select match.Groups[1].Value;
+
+        //    return sanList;
+        //}
+
+        //public static bool ValidateSanUri(X509Certificate2 certificate, string iothubHostName, string deviceId, string moduleId)
+        //{
+        //    string uri = string.Format($"azureiot://{0}/devices/{1}/modules/{2}", iothubHostName, deviceId, moduleId);
+
+        //    foreach (X509Extension extension in certificate.Extensions)
+        //    {
+        //        // Create an AsnEncodedData object using the extensions information.
+        //        AsnEncodedData asndata = new AsnEncodedData(extension.Oid, extension.RawData);
+        //        Console.WriteLine("Extension type: {0}", extension.Oid.FriendlyName);
+        //        Console.WriteLine("Oid value: {0}", asndata.Oid.Value);
+        //        Console.WriteLine("Raw data length: {0} {1}", asndata.RawData.Length, Environment.NewLine);
+        //        Console.WriteLine(asndata.Format(true));
+        //    }
+
+        //}
+
+        public static bool ValidateSanUri(X509Certificate2 certificate, string iothubHostName, string deviceId, string moduleId) => true;
 
         public static (Option<IList<X509Certificate2>>, Option<string>) GetCertsAtPath(string path)
         {
@@ -208,6 +288,12 @@ namespace Microsoft.Azure.Devices.Edge.Util
             return ParseCertificateResponse(response);
         }
 
+        public static async Task<IEnumerable<X509Certificate2>> GetTrustBundleFromEdgelet(Uri workloadUri, string workloadApiVersion, string moduleId, string moduleGenerationId)
+        {
+            TrustBundleResponse response = await new WorkloadClient(workloadUri, workloadApiVersion, moduleId, moduleGenerationId).GetTrustBundleAsync();
+            return ParseTrustBundleResponse(response);
+        }
+
         public static (X509Certificate2 ServerCertificate, IEnumerable<X509Certificate2> CertificateChain) GetServerCertificateAndChainFromFile(string serverWithChainFilePath, string serverPrivateKeyFilePath)
         {
             string cert, privateKey;
@@ -258,6 +344,32 @@ namespace Microsoft.Azure.Devices.Edge.Util
                 .ToList(); // Re-add the certificate end-marker which was removed by split
         }
 
+        public static IEnumerable<X509Certificate2> ParseTrustedBundleFromFile(string trustBundleFilePath)
+        {
+            string certs;
+
+            if (string.IsNullOrWhiteSpace(trustBundleFilePath) || !File.Exists(trustBundleFilePath))
+            {
+                throw new ArgumentException($"'{trustBundleFilePath}' is not a path to a trust bundle certificates file");
+            }
+
+            using (var sr = new StreamReader(trustBundleFilePath))
+            {
+                certs = sr.ReadToEnd();
+            }
+
+            return ParseTrustedBundleCerts(certs);
+        }
+        internal static IEnumerable<X509Certificate2> ParseTrustBundleResponse(TrustBundleResponse response)
+        {
+            return ParseTrustedBundleCerts(response.Certificate);
+        }
+
+        internal static IEnumerable<X509Certificate2> ParseTrustedBundleCerts(string trustedCACerts)
+        {
+            return GetCertificatesFromPem(ParsePemCerts(trustedCACerts));
+        }
+
         internal static (X509Certificate2, IEnumerable<X509Certificate2>) ParseCertificateResponse(CertificateResponse response)
         {
             return ParseCertificateAndKey(response.Certificate, response.PrivateKey.Bytes);
@@ -288,6 +400,10 @@ namespace Microsoft.Azure.Devices.Edge.Util
                 if (certObject is Org.BouncyCastle.X509.X509Certificate x509Cert)
                 {
                     chain.Add(new X509CertificateEntry(x509Cert));
+                }
+                if (certObject is AsymmetricCipherKeyPair)
+                {
+                    certObject = ((AsymmetricCipherKeyPair)certObject).Private;
                 }
                 if (certObject is RsaPrivateCrtKeyParameters)
                 {

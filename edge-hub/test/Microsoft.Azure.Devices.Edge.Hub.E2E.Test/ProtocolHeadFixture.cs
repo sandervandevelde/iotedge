@@ -59,6 +59,7 @@ namespace Microsoft.Azure.Devices.Edge.Hub.E2E.Test
                 string certificateValue = await SecretsHelper.GetSecret("IotHubMqttHeadCert");
                 byte[] cert = Convert.FromBase64String(certificateValue);
                 var certificate = new X509Certificate2(cert);
+                var trustBundle = new List<X509Certificate2>();
 
                 string edgeDeviceConnectionString = await SecretsHelper.GetSecretFromConfigKey("edgeCapableDeviceConnStrKey");
 
@@ -66,7 +67,7 @@ namespace Microsoft.Azure.Devices.Edge.Hub.E2E.Test
                 await ConnectToIotHub(edgeDeviceConnectionString);
 
                 ConfigHelper.TestConfig[Service.Constants.ConfigKey.IotHubConnectionString] = edgeDeviceConnectionString;
-                Hosting hosting = Hosting.Initialize(ConfigHelper.TestConfig, certificate, new DependencyManager(ConfigHelper.TestConfig, certificate));
+                Hosting hosting = Hosting.Initialize(ConfigHelper.TestConfig, certificate, new DependencyManager(ConfigHelper.TestConfig, certificate, trustBundle));
                 this.container = hosting.Container;
 
                 // CloudConnectionProvider and RoutingEdgeHub have a circular dependency. So set the

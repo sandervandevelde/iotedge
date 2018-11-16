@@ -23,6 +23,7 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Service
     {
         readonly IConfigurationRoot configuration;
         readonly X509Certificate2 serverCertificate;
+        readonly IList<X509Certificate2> trustBundle;
 
         readonly string iotHubHostname;
         readonly string edgeDeviceId;
@@ -31,10 +32,11 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Service
         readonly Option<string> connectionString;
         readonly VersionInfo versionInfo;
 
-        public DependencyManager(IConfigurationRoot configuration, X509Certificate2 serverCertificate)
+        public DependencyManager(IConfigurationRoot configuration, X509Certificate2 serverCertificate, IList<X509Certificate2> trustBundle)
         {
             this.configuration = Preconditions.CheckNotNull(configuration, nameof(configuration));
             this.serverCertificate = Preconditions.CheckNotNull(serverCertificate, nameof(serverCertificate));
+            this.trustBundle = Preconditions.CheckNotNull(trustBundle, nameof(trustBundle));
 
             string edgeHubConnectionString = this.configuration.GetValue<string>(Constants.ConfigKey.IotHubConnectionString);
             if (!string.IsNullOrWhiteSpace(edgeHubConnectionString))
@@ -71,7 +73,7 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Service
                     var eventListener = new LoggerEventListener(loggerFactory.CreateLogger("ProtocolGateway"));
                     eventListener.EnableEvents(CommonEventSource.Log, EventLevel.Informational);
                 });
-            
+
             bool optimizeForPerformance = this.configuration.GetValue("OptimizeForPerformance", true);
             (bool isEnabled, bool usePersistentStorage, StoreAndForwardConfiguration config, string storagePath) storeAndForward = this.GetStoreAndForwardConfiguration();
 
@@ -93,14 +95,11 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Service
             var topics = new MessageAddressConversionConfiguration(
                 this.configuration.GetSection(Constants.TopicNameConversionSectionName + ":InboundTemplates").Get<List<string>>(),
                 this.configuration.GetSection(Constants.TopicNameConversionSectionName + ":OutboundTemplates").Get<Dictionary<string, string>>());
-            string caChainPath = this.configuration.GetValue(Constants.ConfigKey.EdgeHubServerCAChainCertificateFile, string.Empty);
 
-            // TODO: We don't want to make enabling Cert Auth configurable right now. Turn off Cert auth. 
-            //bool clientCertAuthEnabled = this.Configuration.GetValue("ClientCertAuthEnabled", false);
-            bool clientCertAuthEnabled = false;
+            bool clientCertAuthEnabled = this.configuration.GetValue(Constants.ConfigKey.EdgeHubClientCertAuthEnabled, false);
 
             IConfiguration mqttSettingsConfiguration = this.configuration.GetSection("mqttSettings");
-            builder.RegisterModule(new MqttModule(mqttSettingsConfiguration, topics, this.serverCertificate, storeAndForward.isEnabled, clientCertAuthEnabled, caChainPath, optimizeForPerformance));
+            builder.RegisterModule(new MqttModule(mqttSettingsConfiguration, topics, this.serverCertificate, storeAndForward.isEnabled, clientCertAuthEnabled, optimizeForPerformance));
         }
 
         void RegisterRoutingModule(ContainerBuilder builder, (bool isEnabled, bool usePersistentStorage, StoreAndForwardConfiguration config, string storagePath) storeAndForward)
@@ -168,7 +167,8 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Service
                     storeAndForward.storagePath,
                     workloadUri,
                     scopeCacheRefreshRate,
-                    cacheTokens));
+                    cacheTokens,
+                    this.trustBundle));
         }
 
         internal static Option<UpstreamProtocol> GetUpstreamProtocol(IConfigurationRoot configuration) =>
@@ -178,7 +178,7 @@ namespace Microsoft.Azure.Devices.Edge.Hub.Service
 
         (bool isEnabled, bool usePersistentStorage, StoreAndForwardConfiguration config, string storagePath) GetStoreAndForwardConfiguration()
         {
-            int defaultTtl = -1;            
+            int defaultTtl = -1;
             bool usePersistentStorage = this.configuration.GetValue<bool>("usePersistentStorage");
             int timeToLiveSecs = defaultTtl;
             string storagePath = this.GetStoragePath();
