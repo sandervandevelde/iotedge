@@ -282,9 +282,11 @@ function Get-SecurityDaemon {
                 New-Item "$Path" -ItemType "Directory" -Force | Out-Null
                 $Rule = New-Object -TypeName System.Security.AccessControl.FileSystemAccessRule(`
                     "NT AUTHORITY\Authenticated Users", 'Modify', 'ObjectInherit', 'InheritOnly', 'Allow')
-                $Acl = [System.IO.Directory]::GetAccessControl($Path)
+                #$Acl = [System.IO.Directory]::GetAccessControl($Path)
+                $Acl = Get-Acl -Path $Path
                 $Acl.AddAccessRule($Rule)
-                [System.IO.Directory]::SetAccessControl($Path, $Acl)            
+                #[System.IO.Directory]::SetAccessControl($Path, $Acl)            
+                Set-Acl -Path $Path -AclObject $Acl
             }
         }
 
