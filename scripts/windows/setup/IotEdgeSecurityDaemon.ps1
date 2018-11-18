@@ -288,6 +288,7 @@ function Get-SecurityDaemon {
                 #[System.IO.Directory]::SetAccessControl($Path, $Acl)            
                 Set-Acl -Path $Path -AclObject $Acl
             }
+            [Environment]::SetEnvironmentVariable("IOTEDGE_HOST", "C:\ProgramData\iotedge\mgmt\sock")
         }
 
         if (Test-Path 'C:\ProgramData\iotedge\iotedged_eventlog_messages.dll') {
@@ -444,7 +445,7 @@ function Get-VcRuntime {
 }
 
 function Install-IotEdgeService {
-    New-Service -Name "iotedge" -BinaryPathName "C:\ProgramData\iotedge\iotedged.exe -c C:\ProgramData\iotedge\config.yaml" | Out-Null
+    New-Service -Name "iotedge" -BinaryPathName "C:\ProgramData\iotedge\iotedged.exe -c C:\ProgramData\iotedge\config.yaml" -DependsOn docker | Out-Null
     Start-Service iotedge
     Write-Host "Initialized the IoT Edge service." -ForegroundColor "Green"
 }
