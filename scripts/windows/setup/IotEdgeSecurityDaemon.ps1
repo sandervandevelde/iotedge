@@ -289,6 +289,7 @@ function Get-SecurityDaemon {
                 Set-Acl -Path $Path -AclObject $Acl
             }
             [Environment]::SetEnvironmentVariable("IOTEDGE_HOST", "unix:\\\C:\ProgramData\iotedge\mgmt\sock")
+            Invoke-Native "setx /M IOTEDGE_HOST `"unix:\\\C:\ProgramData\iotedge\mgmt\sock`""
         }
 
         if (Test-Path 'C:\ProgramData\iotedge\iotedged_eventlog_messages.dll') {
