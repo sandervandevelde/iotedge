@@ -288,7 +288,7 @@ function Get-SecurityDaemon {
                 #[System.IO.Directory]::SetAccessControl($Path, $Acl)            
                 Set-Acl -Path $Path -AclObject $Acl
             }
-            [Environment]::SetEnvironmentVariable("IOTEDGE_HOST", "C:\ProgramData\iotedge\mgmt\sock")
+            [Environment]::SetEnvironmentVariable("IOTEDGE_HOST", "unix:\\\C:\ProgramData\iotedge\mgmt\sock")
         }
 
         if (Test-Path 'C:\ProgramData\iotedge\iotedged_eventlog_messages.dll') {
